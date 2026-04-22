@@ -17,8 +17,9 @@ async def health(request: Request) -> JSONResponse:
     checks["hermes_chat"] = await _probe(chat, "/health")
     checks["hermes_dashboard"] = await _probe(dash, "/api/status")
 
+    required_ok = bool(checks["bridge"]["ok"]) and bool(checks["hermes_chat"]["ok"])
     all_ok = all(bool(v["ok"]) for v in checks.values())
-    status = 200 if all_ok else 503
+    status = 200 if required_ok else 503
     return JSONResponse({"ok": all_ok, "checks": checks}, status_code=status)
 
 

@@ -85,7 +85,7 @@ Every mutation (`POST/PUT/DELETE/PATCH`) is appended as one JSON line to `$BRIDG
 **Auth:** public.
 **Params:** none.
 
-Returns 200 only when the bridge, hermes `:8642/health`, and hermes `:9119/api/status` all respond non-5xx. Otherwise 503.
+Returns 200 when the bridge and hermes `:8642/health` respond OK. The hermes `:9119/api/status` probe is reported in the response but is **not** required for a 200 — the dashboard can be down without failing liveness. Top-level `ok` still reflects all probes, so clients should read `checks.*` for a non-blocking view.
 
 ```bash
 curl $BRIDGE/health
@@ -166,6 +166,68 @@ curl $BRIDGE/api/status -H "Authorization: Bearer $TOKEN"
 **Auth:** bearer.
 **Params:** none.
 **Upstream:** `GET :9119/api/model/info`.
+
+---
+
+### `GET /api/providers/llm` — API-key LLM provider catalog
+
+**Auth:** bearer.
+**Params:** none.
+**Source:** bridge-composed from `GET :9119/api/env`.
+
+Returns a curated list of API-key LLM providers (OpenRouter, Gemini, xAI, DeepSeek, Kimi, etc.), each enriched with connection status, the underlying env key entry (redacted value, `is_set`), any aliases, and the base-URL env entry. Intended for the mobile "Providers" screen — prefer this over parsing `/api/env` directly.
+
+**200 OK**
+```json
+{
+  "providers": [
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "docs_url": "https://openrouter.ai/keys",
+      "connected": true,
+      "api_key": {"key": "OPENROUTER_API_KEY", "is_set": true, "redacted_value": "sk-or-…", "is_password": true, "description": "...", "url": null},
+      "api_key_aliases": [],
+      "base_url": {"key": "OPENROUTER_BASE_URL", "is_set": false, "redacted_value": null, "is_password": false, "description": "...", "url": null}
+    }
+  ]
+}
+```
+
+**502** — upstream `/api/env` failed; `detail` and `status` included.
+
+---
+
+### `GET /api/providers/oauth` — OAuth provider catalog (proxy)
+
+**Auth:** bearer.
+**Params:** none.
+**Upstream:** `GET :9119/api/providers/oauth`.
+
+Read-only list of OAuth-capable providers and their connection state. OAuth start/submit/poll/revoke endpoints remain on the v1.1+ roadmap.
+
+---
+
+### `GET /api/tools/toolsets` — available toolsets (proxy)
+
+**Auth:** bearer.
+**Params:** none.
+**Upstream:** `GET :9119/api/tools/toolsets`.
+
+---
+
+### `GET /api/skills` — skills catalog (proxy)
+
+**Auth:** bearer.
+**Params:** none.
+**Upstream:** `GET :9119/api/skills`.
+
+---
+
+### `PUT /api/skills/toggle` — enable/disable a skill (proxy)
+
+**Auth:** bearer (write bucket).
+**Upstream:** `PUT :9119/api/skills/toggle`. Request body is forwarded verbatim; consult upstream for the exact shape.
 
 ---
 
@@ -330,6 +392,73 @@ curl "$BRIDGE/api/sessions/search?q=deploy&limit=10" -H "Authorization: Bearer $
 
 ---
 
+### `GET /api/cron/jobs` — list cron jobs (proxy)
+
+**Auth:** bearer.
+**Query params:** forwarded untouched.
+**Upstream:** `GET :9119/api/cron/jobs`.
+
+---
+
+### `POST /api/cron/jobs` — create a cron job (proxy)
+
+**Auth:** bearer (write bucket).
+**Upstream:** `POST :9119/api/cron/jobs`. Request body forwarded verbatim.
+
+---
+
+### `PUT /api/cron/jobs/{job_id}` — update a cron job (proxy)
+
+**Auth:** bearer (write bucket).
+**Path params:** `job_id` (str).
+**Upstream:** `PUT :9119/api/cron/jobs/{job_id}`.
+
+---
+
+### `DELETE /api/cron/jobs/{job_id}` — delete a cron job (proxy)
+
+**Auth:** bearer (write bucket).
+**Path params:** `job_id` (str).
+**Upstream:** `DELETE :9119/api/cron/jobs/{job_id}`.
+
+---
+
+### `POST /api/cron/jobs/{job_id}/{pause,resume,trigger}` — cron job actions (proxy)
+
+**Auth:** bearer (write bucket).
+**Path params:** `job_id` (str); action is one of `pause`, `resume`, `trigger`.
+**Upstream:** `POST :9119/api/cron/jobs/{job_id}/{action}`. No request body.
+
+```bash
+curl -X POST "$BRIDGE/api/cron/jobs/$JOB/trigger" -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### `GET /api/logs` — recent hermes logs (proxy)
+
+**Auth:** bearer.
+**Query params:** forwarded untouched (hermes supports `lines`, and may support `since`/`level` — consult the pinned hermes version).
+**Upstream:** `GET :9119/api/logs`.
+
+```bash
+curl "$BRIDGE/api/logs?lines=300" -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+### `GET /api/analytics/usage` — usage analytics (proxy)
+
+**Auth:** bearer.
+**Query params:** forwarded untouched (e.g. `days`).
+**Upstream:** `GET :9119/api/analytics/usage`.
+
+```bash
+curl "$BRIDGE/api/analytics/usage?days=30" -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
 ### `POST /api/gateway/start` — start the messaging gateway
 
 **Auth:** bearer (write bucket).
@@ -363,11 +492,7 @@ The following mobile-facing endpoints are on the v1.1+ roadmap (see [PLAN.md §1
 
 **Proxies (already exist upstream, just need wiring):**
 
-- `GET/POST /api/cron/jobs`, `PUT/DELETE /api/cron/jobs/{id}`, `POST /api/cron/jobs/{id}/{pause,resume,trigger}`
-- `GET /api/skills`, `PUT /api/skills/toggle`
-- `GET /api/tools/toolsets`
-- `GET /api/providers/oauth`, `POST /api/providers/oauth/{id}/{start,submit}`, `GET /api/providers/oauth/{id}/poll/{session_id}`, `DELETE /api/providers/oauth/{id}`, `DELETE /api/providers/oauth/sessions/{session_id}`
-- `GET /api/logs`, `GET /api/analytics/usage`
+- `POST /api/providers/oauth/{id}/{start,submit}`, `GET /api/providers/oauth/{id}/poll/{session_id}`, `DELETE /api/providers/oauth/{id}`, `DELETE /api/providers/oauth/sessions/{session_id}`
 - `GET/PUT /api/config/raw`
 
 **Gap-fills (bridge-implemented, no upstream HTTP yet):**

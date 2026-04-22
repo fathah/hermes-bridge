@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from .auth import AuditLog, AuthMiddleware, SlidingWindowLimiter
 from .config import Settings, get_settings
 from .dashboard_token import DashboardTokenManager
-from .routes import chat, gateway, health, sessions
+from .routes import chat, cron, gateway, health, observability, providers, sessions
 from .routes import config as config_routes
 from .upstream import _do_dashboard_request, build_clients, close_clients
 
@@ -61,7 +61,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(chat.router)
     app.include_router(config_routes.router)
+    app.include_router(providers.router)
     app.include_router(sessions.router)
     app.include_router(gateway.router)
+    app.include_router(observability.router)
+    app.include_router(cron.router)
 
     return app

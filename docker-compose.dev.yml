@@ -1,0 +1,9 @@
+# Dev-only override: expose hermes ports on localhost so a local bridge
+# process can reach them. Do NOT use in production.
+services:
+  hermes:
+    ports:
+      - "127.0.0.1:8642:8642"
+  hermes-dashboard:
+    ports:
+      - "127.0.0.1:9119:9119"
