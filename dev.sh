@@ -41,7 +41,7 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 echo "Starting hermes + dashboard in Docker (with exposed ports)..."
-docker compose --profile dashboard -f docker-compose.yml -f "$DEV_OVERRIDE" up -d hermes hermes-dashboard
+docker compose -f docker-compose.yml -f "$DEV_OVERRIDE" up -d hermes hermes-dashboard
 
 mkdir -p "$DEV_DATA_DIR/logs"
 

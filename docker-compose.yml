@@ -18,13 +18,12 @@ services:
       - internal
     # No ports published - only the bridge is reachable from outside.
 
-    # Optional dashboard for config/env/sessions management (:9119).
-    # Off by default. Enable with:  docker compose --profile dashboard up -d
+    # Dashboard (config/env/sessions/cron/tools APIs) — required: many
+    # bridge endpoints proxy to it. On by default.
   hermes-dashboard:
     container_name: hermes-dashboard
     image: nousresearch/hermes-agent:v2026.4.16
     restart: unless-stopped
-    profiles: [ "dashboard" ]
     command:
       [
         "dashboard",
@@ -59,7 +58,7 @@ services:
       BRIDGE_TOKEN: ${BRIDGE_TOKEN}
       HERMES_API_KEY: ${HERMES_API_KEY}
       HERMES_CHAT_URL: http://hermes:8642
-      HERMES_DASH_URL: http://hermes:9119
+      HERMES_DASH_URL: http://hermes-dashboard:9119
       HERMES_HOME: /opt/data
       HERMES_CONTAINER_NAME: ${HERMES_CONTAINER_NAME:-hermes}
     networks:
